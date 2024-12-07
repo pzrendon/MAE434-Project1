@@ -1,0 +1,92 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Constants
+gamma = 1.4  # specific heat ratio for air
+R = 287.05  # specific gas constant for air, J/(kg·K)
+T0 = 300  # stagnation temperature at inlet, K
+p0 = 101325  # stagnation pressure at inlet, Pa
+M3 = 2.0  # Mach number in test section
+A3 = 0.5 * 0.5  # test section area, m^2
+D = 0.5  # constant depth of tunnel, m
+eta = 0.92  # adiabatic efficiency of the compressor
+rho0 = p0 / (R * T0)  # stagnation density, kg/m^3
+L_test_section = 1.0  # length of the test section, m
+L_total = 5.0  # total assumed length of the tunnel, m
+L_converging = L_total * 0.25  # assumed 25% of the length
+L_diverging = L_total * 0.25  # assumed 25% of the length
+mu = 1.8e-5  # dynamic viscosity of air, Pa·s
+
+# Function definitions
+def isentropic_relations(M):
+    """Calculate pressure, temperature, and density ratios for isentropic flow."""
+    T_ratio = 1 / (1 + ((gamma - 1) / 2) * M**2)
+    p_ratio = T_ratio**(gamma / (gamma - 1))
+    rho_ratio = T_ratio**(1 / (gamma - 1))
+    return T_ratio, p_ratio, rho_ratio
+
+def area_mach_relation(M, gamma):
+    """Calculate area ratio for a given Mach number."""
+    term = ((gamma + 1) / 2)**(-(gamma + 1) / (2 * (gamma - 1))) * \
+           ((1 + ((gamma - 1) / 2) * M**2)**((gamma + 1) / (2 * (gamma - 1)))) / M
+    return term
+
+# Calculate cross-sectional areas
+A_star_ratio = area_mach_relation(M3, gamma)
+A1 = A_star_ratio * A3
+A4 = A3
+
+# Mass flow rate
+v3 = M3 * np.sqrt(gamma * R * T0)
+mass_flow_rate = rho0 * v3 * A3
+
+# Fan power rating
+p02_p01 = (1 + ((gamma - 1) / 2) * M3**2)**(gamma / (gamma - 1))  # stagnation pressure ratio
+power_rating = mass_flow_rate * R * T0 * (p02_p01**((gamma - 1) / gamma) - 1)
+
+# Reynolds number in the test section
+Re = (rho0 * v3 * D) / mu
+
+# Smooth height function for y(x)
+x = np.linspace(0, L_total, 1000)
+y = np.piecewise(
+    x,
+    [x <= L_converging, 
+     (x > L_converging) & (x <= L_converging + L_test_section), 
+     x > L_converging + L_test_section],
+    [
+        lambda x: D / 2 * (1 - (x / L_converging)**2),  # converging section
+        lambda x: D / 2,  # test section
+        lambda x: D / 2 * (1 + ((x - (L_converging + L_test_section)) / L_diverging)**2),  # diverging section
+    ],
+)
+
+# Force on foundation bolts (idealized)
+force_bolts = 0  # Momentum and pressure forces cancel out in this idealized case
+
+# Plot y(x)
+plt.figure(figsize=(10, 6))
+plt.plot(x, y * 2, label='Tunnel Height')
+plt.title('Tunnel Height Distribution')
+plt.xlabel('x (m)')
+plt.ylabel('Height (m)')
+plt.legend()
+plt.grid()
+plt.show()
+
+# Results summary
+print(f"Cross-sectional Areas:")
+print(f"A1 (Inlet Area): {A1:.4f} m^2")
+print(f"A3 (Test Section Area): {A3:.4f} m^2")
+print(f"A4 (Exit Area): {A4:.4f} m^2\n")
+
+print(f"Lengths:")
+print(f"Converging Section Length: {L_converging:.2f} m")
+print(f"Test Section Length: {L_test_section:.2f} m")
+print(f"Diverging Section Length: {L_diverging:.2f} m\n")
+
+print(f"Performance:")
+print(f"Total Pressure Ratio (p02/p01): {p02_p01:.4f}")
+print(f"Fan Power Rating: {power_rating:.2f} W")
+print(f"Reynolds Number in Test Section: {Re:.2e}")
+print(f"Force on Foundation Bolts: {force_bolts:.2f} N")
